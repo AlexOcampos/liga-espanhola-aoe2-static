@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown and Links</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #282c34;
+            color: white;
+            text-align: center;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #1c1e22;
+            padding: 20px;
+        }
+
+        .logo {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .logo a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .header-right a {
+            color: white;
+            font-size: 1.2em;
+            text-decoration: none;
+        }
+
+        .header-right a:hover {
+            opacity: 0.8;
+        }
+
+        /* Table Styles */
+        table {
+            border-collapse: collapse;
+            width: 90%;
+            margin: 50px auto;
+        }
+
+        th,
+        td {
+            padding: 20px;
+            border: none;
+            text-align: left;
+        }
+
+        td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-direction: row;
+        }
+
+        a {
+            font-size: 1.5em;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .icon-lock {
+            margin-right: 10px;
+            font-size: 1.5em;
+        }
+
+        .release-date {
+            font-size: 0.8em;
+            margin-left: 10px;
+            color: #bbb;
+        }
+
+        .countdown {
+            font-size: 1em;
+            text-align: right;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+
+        .locked {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .unlocked {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .unlocked:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            td {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .countdown {
+                margin-left: 0;
+                margin-top: 10px;
+                text-align: left;
+            }
+
+            .release-date {
+                margin-left: 0;
+                margin-top: 5px;
+                text-align: left;
+            }
+
+            /* Reduce the font size of the logo in mobile view */
+            .logo {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="logo">
+            <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">GAMERHEIMER</a>
+        </div>
+        <div class="header-right">
+            <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank">About</a>
+        </div>
+    </header>
+
+    <table id="links-table">
+        <!-- Links will be generated here -->
+    </table>
+
+    <script>
+        // Verificamos si ya se ha guardado una contraseña válida en localStorage
+        function checkPassword() {
+            const savedPassword = localStorage.getItem('passwordAccepted');
+
+            if (!savedPassword) {
+                // Si no hay contraseña guardada, solicitamos una
+                let userPassword = prompt('Please enter the password:');
+                if (userPassword === 'hugocabron') {
+                    // Si la contraseña es correcta, guardamos en localStorage y mostramos la página
+                    localStorage.setItem('passwordAccepted', 'true');
+                    alert('Access granted!');
+                    fetchData();  // Cargamos los datos después de conceder acceso
+                } else {
+                    // Si la contraseña es incorrecta, mostramos un mensaje y volvemos a pedirla
+                    alert('Incorrect password. Please try again.');
+                    checkPassword();
+                }
+            } else {
+                // Si ya está guardada, cargamos los datos directamente
+                fetchData();
+            }
+        }
+
+        // Llamamos a la función de verificación de la contraseña al cargar la página
+        checkPassword();
+
+        let countdownIntervals = {};
+
+        function updateCountdown(targetDate, countdownID, linkID, iconID) {
+            const now = new Date().getTime();
+            const distance = targetDate - now;
+
+            if (distance < 0) {
+                document.getElementById(linkID).classList.remove("locked");
+                document.getElementById(linkID).classList.add("unlocked");
+                document.getElementById(iconID).textContent = "✅";
+                document.getElementById(countdownID).innerHTML = "Available! (You may need to refresh the page)";
+
+                // Clear the interval for this countdown
+                clearInterval(countdownIntervals[countdownID]);
+
+                // Force a data refresh from the API
+                fetchData();
+            } else {
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                document.getElementById(countdownID).innerHTML = days + "d " + hours + "h " + minutes + "m " + seconds + "s ";
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const url = 'https://lea-be-3-b751e0637183.herokuapp.com/api/v1/todo/test';
+                //const url = 'http://localhost:8000/api/v1/todo/test'
+                const response = await fetch(url);
+                const data = await response.json();
+
+                const table = document.getElementById('links-table');
+                table.innerHTML = ''; // Clear any previous rows
+
+                data.forEach(item => {
+                    const now = new Date().getTime();
+                    const publishDate = item.publishDate ? new Date(item.publishDate.replace('Z', '+02:00')).getTime() : null;
+
+                    // Generate unique IDs dynamically based on item name
+                    const linkID = item.name.toLowerCase().replace(/\s/g, '-') + '-link';
+                    const iconID = item.name.toLowerCase().replace(/\s/g, '-') + '-icon';
+                    const countdownID = item.name.toLowerCase().replace(/\s/g, '-') + '-countdown';
+                    const dateID = item.name.toLowerCase().replace(/\s/g, '-') + '-date';
+
+                    // Create new row and cells
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+
+                    // Create link element
+                    const linkElement = document.createElement('a');
+                    linkElement.id = linkID;
+                    linkElement.href = item.url;
+                    linkElement.target = '_blank';
+                    linkElement.rel = 'noopener noreferrer';
+                    linkElement.className = 'locked'; // Default locked
+
+                    // Create icon
+                    const iconElement = document.createElement('span');
+                    iconElement.id = iconID;
+                    iconElement.className = 'icon-lock';
+                    iconElement.textContent = '🔒'; // Default locked icon
+
+                    // Create link text
+                    const linkText = document.createTextNode(' ' + item.name);
+
+                    // Create release date and countdown elements
+                    const dateElement = document.createElement('div');
+                    dateElement.id = dateID;
+                    dateElement.className = 'release-date';
+                    const countdownElement = document.createElement('div');
+                    countdownElement.id = countdownID;
+                    countdownElement.className = 'countdown';
+
+                    // Append everything to the row
+                    linkElement.appendChild(iconElement);
+                    linkElement.appendChild(linkText);
+                    cell.appendChild(linkElement);
+                    cell.appendChild(dateElement);
+                    cell.appendChild(countdownElement);
+                    row.appendChild(cell);
+                    table.appendChild(row);
+
+                    if (publishDate && now < publishDate) {
+                        // Keep link locked and update countdown
+                        dateElement.innerHTML = `(Release: ${new Date(publishDate).toLocaleString()})`;
+
+                        // Start the countdown interval if not already started
+                        if (!countdownIntervals[countdownID]) {
+                            countdownIntervals[countdownID] = setInterval(() => {
+                                updateCountdown(publishDate, countdownID, linkID, iconID);
+                            }, 1000);
+                        }
+                    } else {
+                        // Unlock the link
+                        linkElement.classList.remove("locked");
+                        linkElement.classList.add("unlocked");
+                        iconElement.textContent = "✅";
+                        countdownElement.innerHTML = "Available!";
+                        clearInterval(countdownIntervals[countdownID]); // Clear the countdown if already unlocked
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Call fetchData every 60 seconds to refresh the data
+        setInterval(fetchData, 60000);
+    </script>
+
+</body>
+
+</html>
